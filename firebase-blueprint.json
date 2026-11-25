@@ -1,0 +1,483 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated player profile, permanent friend ID, saved avatar, and match statistics.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the profile owner.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "friendCode": {
+          "type": "string",
+          "description": "Permanent shareable player Friend ID (e.g. MAF-7492).",
+          "minLength": 6,
+          "maxLength": 16,
+          "pattern": "^[A-Z0-9\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Player display name shown in lobbies and rooms.",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "avatar": {
+          "type": "string",
+          "description": "Chosen character portrait ID.",
+          "enum": [
+            "lantern",
+            "fedora",
+            "magnifying",
+            "shield",
+            "rose",
+            "pocketwatch",
+            "key",
+            "raven",
+            "compass",
+            "quill",
+            "chalice",
+            "mask"
+          ],
+          "maxLength": 20
+        },
+        "gamesPlayed": {
+          "type": "integer",
+          "description": "Total completed matches played."
+        },
+        "gamesWon": {
+          "type": "integer",
+          "description": "Total completed matches won."
+        },
+        "gmHostedCount": {
+          "type": "integer",
+          "description": "Total matches hosted as Game Master."
+        },
+        "lastActiveRoomCode": {
+          "type": "string",
+          "description": "Most recent room code joined or hosted by the user.",
+          "maxLength": 12
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when profile was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when profile was last updated."
+        }
+      },
+      "required": [
+        "uid",
+        "friendCode",
+        "displayName",
+        "avatar",
+        "gamesPlayed",
+        "gamesWon",
+        "gmHostedCount",
+        "lastActiveRoomCode",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PlayerDirectoryEntry": {
+      "title": "PlayerDirectoryEntry",
+      "description": "Public lookup record keyed by Friend ID so friends can find each other and see current room status without exposing PII.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "friendCode": {
+          "type": "string",
+          "description": "Unique uppercase Friend ID.",
+          "minLength": 6,
+          "maxLength": 16,
+          "pattern": "^[A-Z0-9\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Public display name.",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "avatar": {
+          "type": "string",
+          "description": "Character portrait ID.",
+          "enum": [
+            "lantern",
+            "fedora",
+            "magnifying",
+            "shield",
+            "rose",
+            "pocketwatch",
+            "key",
+            "raven",
+            "compass",
+            "quill",
+            "chalice",
+            "mask"
+          ],
+          "maxLength": 20
+        },
+        "currentRoomCode": {
+          "type": "string",
+          "description": "Active room code if currently in a parlor, otherwise empty string.",
+          "maxLength": 12
+        },
+        "currentRoomName": {
+          "type": "string",
+          "description": "Active room name if currently in a parlor, otherwise empty string.",
+          "maxLength": 40
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when presence was updated."
+        }
+      },
+      "required": [
+        "uid",
+        "friendCode",
+        "displayName",
+        "avatar",
+        "currentRoomCode",
+        "currentRoomName",
+        "updatedAt"
+      ]
+    },
+    "FriendLink": {
+      "title": "FriendLink",
+      "description": "Saved friend entry under a user's personal friends subcollection.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Owner UID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "friendUid": {
+          "type": "string",
+          "description": "Friend UID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "friendCode": {
+          "type": "string",
+          "description": "Friend's shareable Friend ID.",
+          "minLength": 6,
+          "maxLength": 16,
+          "pattern": "^[A-Z0-9\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Friend's display name snapshot.",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "avatar": {
+          "type": "string",
+          "description": "Friend's avatar ID snapshot.",
+          "maxLength": 20
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when friend was added."
+        }
+      },
+      "required": [
+        "uid",
+        "friendUid",
+        "friendCode",
+        "displayName",
+        "avatar",
+        "createdAt"
+      ]
+    },
+    "MatchHistoryRecord": {
+      "title": "MatchHistoryRecord",
+      "description": "Completed Mafia match record saved to a player's personal history.",
+      "type": "object",
+      "properties": {
+        "matchId": {
+          "type": "string",
+          "description": "Unique match summary ID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "uid": {
+          "type": "string",
+          "description": "Owner UID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "roomCode": {
+          "type": "string",
+          "description": "Room code where match took place.",
+          "minLength": 4,
+          "maxLength": 12,
+          "pattern": "^[A-Z0-9]+$"
+        },
+        "roomName": {
+          "type": "string",
+          "description": "Room name.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "role": {
+          "type": "string",
+          "description": "Role played in this completed match.",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "team": {
+          "type": "string",
+          "description": "Alignment of the player.",
+          "enum": ["Town", "Mafia", "Neutral", "GM"],
+          "maxLength": 16
+        },
+        "winnerTeam": {
+          "type": "string",
+          "description": "Winning alignment.",
+          "enum": ["Town", "Mafia", "Neutral"],
+          "maxLength": 16
+        },
+        "won": {
+          "type": "boolean",
+          "description": "Whether this player's team won."
+        },
+        "wasGM": {
+          "type": "boolean",
+          "description": "Whether the user served as Game Master."
+        },
+        "roundsPlayed": {
+          "type": "integer",
+          "description": "Number of rounds completed."
+        },
+        "playerCount": {
+          "type": "integer",
+          "description": "Number of non-GM players in the match."
+        },
+        "playedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when match summary was saved."
+        }
+      },
+      "required": [
+        "matchId",
+        "uid",
+        "roomCode",
+        "roomName",
+        "role",
+        "team",
+        "winnerTeam",
+        "won",
+        "wasGM",
+        "roundsPlayed",
+        "playerCount",
+        "playedAt"
+      ]
+    },
+    "RoomDirectoryEntry": {
+      "title": "RoomDirectoryEntry",
+      "description": "Public or friend-joinable active room listing metadata (strictly excludes secret roles and night actions).",
+      "type": "object",
+      "properties": {
+        "roomCode": {
+          "type": "string",
+          "description": "Uppercase room join code.",
+          "minLength": 4,
+          "maxLength": 12,
+          "pattern": "^[A-Z0-9]+$"
+        },
+        "roomName": {
+          "type": "string",
+          "description": "Display name of the Mafia parlor.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "hostUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the Game Master.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "hostName": {
+          "type": "string",
+          "description": "Game Master display name.",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "hostFriendCode": {
+          "type": "string",
+          "description": "Game Master's Friend ID.",
+          "minLength": 6,
+          "maxLength": 16,
+          "pattern": "^[A-Z0-9\\-]+$"
+        },
+        "phase": {
+          "type": "string",
+          "description": "High-level room status (LOBBY, IN_GAME, GAME_OVER).",
+          "enum": ["LOBBY", "IN_GAME", "GAME_OVER"],
+          "maxLength": 16
+        },
+        "playerCount": {
+          "type": "integer",
+          "description": "Current non-GM player count."
+        },
+        "playerLimit": {
+          "type": "integer",
+          "description": "Maximum allowed players."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the room appears in the public lobby browser."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when room listing was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when room listing was last updated."
+        }
+      },
+      "required": [
+        "roomCode",
+        "roomName",
+        "hostUid",
+        "hostName",
+        "hostFriendCode",
+        "phase",
+        "playerCount",
+        "playerLimit",
+        "isPublic",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RoomInvite": {
+      "title": "RoomInvite",
+      "description": "Direct online room invitation sent from one player to a friend.",
+      "type": "object",
+      "properties": {
+        "inviteId": {
+          "type": "string",
+          "description": "Unique invite document ID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "fromUid": {
+          "type": "string",
+          "description": "Sender Firebase Auth UID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "fromName": {
+          "type": "string",
+          "description": "Sender display name.",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "fromFriendCode": {
+          "type": "string",
+          "description": "Sender Friend ID.",
+          "minLength": 6,
+          "maxLength": 16,
+          "pattern": "^[A-Z0-9\\-]+$"
+        },
+        "fromAvatar": {
+          "type": "string",
+          "description": "Sender avatar ID.",
+          "maxLength": 20
+        },
+        "toUid": {
+          "type": "string",
+          "description": "Recipient Firebase Auth UID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "roomCode": {
+          "type": "string",
+          "description": "Target room code.",
+          "minLength": 4,
+          "maxLength": 12,
+          "pattern": "^[A-Z0-9]+$"
+        },
+        "roomName": {
+          "type": "string",
+          "description": "Target room name.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "status": {
+          "type": "string",
+          "description": "Invite status.",
+          "enum": ["pending", "accepted", "dismissed"],
+          "maxLength": 16
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when invite was sent."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when invite status changed."
+        }
+      },
+      "required": [
+        "inviteId",
+        "fromUid",
+        "fromName",
+        "fromFriendCode",
+        "fromAvatar",
+        "toUid",
+        "roomCode",
+        "roomName",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Owner-only user profile with permanent Friend ID and career statistics."
+    },
+    "/users/{userId}/friends/{friendUid}": {
+      "schema": { "$ref": "#/entities/FriendLink" },
+      "description": "Owner-only subcollection of saved friends."
+    },
+    "/users/{userId}/matchHistory/{matchId}": {
+      "schema": { "$ref": "#/entities/MatchHistoryRecord" },
+      "description": "Owner-only subcollection of completed Mafia match records."
+    },
+    "/playerDirectory/{friendCode}": {
+      "schema": { "$ref": "#/entities/PlayerDirectoryEntry" },
+      "description": "Lookup directory keyed by Friend Code so players can find friends and see active room status."
+    },
+    "/rooms/{roomCode}": {
+      "schema": { "$ref": "#/entities/RoomDirectoryEntry" },
+      "description": "Active Mafia room directory metadata for public lobbies and direct code lookups."
+    },
+    "/invites/{inviteId}": {
+      "schema": { "$ref": "#/entities/RoomInvite" },
+      "description": "Real-time room invites sent directly between friends."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Nocturne Parlor — Custom Mafia & Game Master",
+  "description": "Online multiplayer Mafia party game with a manual Game Master control panel, strict server-side role privacy, round-based progression, and live parlor voting.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

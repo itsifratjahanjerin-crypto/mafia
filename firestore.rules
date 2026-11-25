@@ -1,0 +1,482 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Pillar 1 / Global Safety Net: Default-deny all unmatched paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ------------------------------------------------------------------
+    // Reusable Primitives & Guards
+    // ------------------------------------------------------------------
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidFriendCode(code) {
+      return code is string && code.size() >= 6 && code.size() <= 16 && code.matches('^[A-Z0-9\\-]+$');
+    }
+
+    function isValidRoomCode(code) {
+      return code is string && code.size() >= 4 && code.size() <= 12 && code.matches('^[A-Z0-9]+$');
+    }
+
+    function isValidAvatar(av) {
+      return av is string &&
+        av.size() >= 1 &&
+        av.size() <= 20 &&
+        av in ['lantern', 'fedora', 'magnifying', 'shield', 'rose', 'pocketwatch', 'key', 'raven', 'compass', 'quill', 'chalice', 'mask'];
+    }
+
+    // ------------------------------------------------------------------
+    // Validation Blueprints
+    // ------------------------------------------------------------------
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid',
+          'friendCode',
+          'displayName',
+          'avatar',
+          'gamesPlayed',
+          'gamesWon',
+          'gmHostedCount',
+          'lastActiveRoomCode',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid',
+          'friendCode',
+          'displayName',
+          'avatar',
+          'gamesPlayed',
+          'gamesWon',
+          'gmHostedCount',
+          'lastActiveRoomCode',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.uid is string &&
+        data.uid == userId &&
+        isValidFriendCode(data.friendCode) &&
+        data.displayName is string &&
+        data.displayName.size() >= 1 &&
+        data.displayName.size() <= 24 &&
+        isValidAvatar(data.avatar) &&
+        data.gamesPlayed is int &&
+        data.gamesPlayed >= 0 &&
+        data.gamesWon is int &&
+        data.gamesWon >= 0 &&
+        data.gamesWon <= data.gamesPlayed &&
+        data.gmHostedCount is int &&
+        data.gmHostedCount >= 0 &&
+        data.lastActiveRoomCode is string &&
+        data.lastActiveRoomCode.size() <= 12 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDirectoryEntry(data, friendCode) {
+      return data.keys().hasAll([
+          'uid',
+          'friendCode',
+          'displayName',
+          'avatar',
+          'currentRoomCode',
+          'currentRoomName',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid',
+          'friendCode',
+          'displayName',
+          'avatar',
+          'currentRoomCode',
+          'currentRoomName',
+          'updatedAt'
+        ]) &&
+        isValidId(data.uid) &&
+        isValidFriendCode(data.friendCode) &&
+        data.friendCode == friendCode &&
+        data.displayName is string &&
+        data.displayName.size() >= 1 &&
+        data.displayName.size() <= 24 &&
+        isValidAvatar(data.avatar) &&
+        data.currentRoomCode is string &&
+        data.currentRoomCode.size() <= 12 &&
+        data.currentRoomName is string &&
+        data.currentRoomName.size() <= 40 &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidFriendLink(data, userId, friendUid) {
+      return data.keys().hasAll([
+          'uid',
+          'friendUid',
+          'friendCode',
+          'displayName',
+          'avatar',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid',
+          'friendUid',
+          'friendCode',
+          'displayName',
+          'avatar',
+          'createdAt'
+        ]) &&
+        data.uid is string &&
+        data.uid == userId &&
+        data.friendUid is string &&
+        data.friendUid == friendUid &&
+        data.friendUid != userId &&
+        isValidFriendCode(data.friendCode) &&
+        data.displayName is string &&
+        data.displayName.size() >= 1 &&
+        data.displayName.size() <= 24 &&
+        isValidAvatar(data.avatar) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidMatchHistory(data, userId, matchId) {
+      return data.keys().hasAll([
+          'matchId',
+          'uid',
+          'roomCode',
+          'roomName',
+          'role',
+          'team',
+          'winnerTeam',
+          'won',
+          'wasGM',
+          'roundsPlayed',
+          'playerCount',
+          'playedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'matchId',
+          'uid',
+          'roomCode',
+          'roomName',
+          'role',
+          'team',
+          'winnerTeam',
+          'won',
+          'wasGM',
+          'roundsPlayed',
+          'playerCount',
+          'playedAt'
+        ]) &&
+        data.matchId is string &&
+        data.matchId == matchId &&
+        data.uid is string &&
+        data.uid == userId &&
+        isValidRoomCode(data.roomCode) &&
+        data.roomName is string &&
+        data.roomName.size() >= 1 &&
+        data.roomName.size() <= 40 &&
+        data.role is string &&
+        data.role.size() >= 1 &&
+        data.role.size() <= 32 &&
+        data.team is string &&
+        data.team.size() <= 16 &&
+        data.team in ['Town', 'Mafia', 'Neutral', 'GM'] &&
+        data.winnerTeam is string &&
+        data.winnerTeam.size() <= 16 &&
+        data.winnerTeam in ['Town', 'Mafia', 'Neutral'] &&
+        data.won is bool &&
+        data.wasGM is bool &&
+        data.roundsPlayed is int &&
+        data.roundsPlayed >= 0 &&
+        data.playerCount is int &&
+        data.playerCount >= 0 &&
+        data.playedAt is timestamp;
+    }
+
+    function isValidRoomEntry(data, roomCode) {
+      return data.keys().hasAll([
+          'roomCode',
+          'roomName',
+          'hostUid',
+          'hostName',
+          'hostFriendCode',
+          'phase',
+          'playerCount',
+          'playerLimit',
+          'isPublic',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'roomCode',
+          'roomName',
+          'hostUid',
+          'hostName',
+          'hostFriendCode',
+          'phase',
+          'playerCount',
+          'playerLimit',
+          'isPublic',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidRoomCode(data.roomCode) &&
+        data.roomCode == roomCode &&
+        data.roomName is string &&
+        data.roomName.size() >= 1 &&
+        data.roomName.size() <= 40 &&
+        isValidId(data.hostUid) &&
+        data.hostName is string &&
+        data.hostName.size() >= 1 &&
+        data.hostName.size() <= 24 &&
+        isValidFriendCode(data.hostFriendCode) &&
+        data.phase is string &&
+        data.phase.size() <= 16 &&
+        data.phase in ['LOBBY', 'IN_GAME', 'GAME_OVER'] &&
+        data.playerCount is int &&
+        data.playerCount >= 0 &&
+        data.playerCount <= 32 &&
+        data.playerLimit is int &&
+        data.playerLimit >= 3 &&
+        data.playerLimit <= 24 &&
+        data.isPublic is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidInvite(data, inviteId) {
+      return data.keys().hasAll([
+          'inviteId',
+          'fromUid',
+          'fromName',
+          'fromFriendCode',
+          'fromAvatar',
+          'toUid',
+          'roomCode',
+          'roomName',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'inviteId',
+          'fromUid',
+          'fromName',
+          'fromFriendCode',
+          'fromAvatar',
+          'toUid',
+          'roomCode',
+          'roomName',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.inviteId is string &&
+        data.inviteId == inviteId &&
+        isValidId(data.fromUid) &&
+        data.fromName is string &&
+        data.fromName.size() >= 1 &&
+        data.fromName.size() <= 24 &&
+        isValidFriendCode(data.fromFriendCode) &&
+        isValidAvatar(data.fromAvatar) &&
+        isValidId(data.toUid) &&
+        data.toUid != data.fromUid &&
+        isValidRoomCode(data.roomCode) &&
+        data.roomName is string &&
+        data.roomName.size() >= 1 &&
+        data.roomName.size() <= 40 &&
+        data.status is string &&
+        data.status.size() <= 16 &&
+        data.status in ['pending', 'accepted', 'dismissed'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // ------------------------------------------------------------------
+    // Collection Rules
+    // ------------------------------------------------------------------
+
+    // Connection health check sentinel document
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // Owner-only user profiles & stats
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      allow create: if isVerifiedUser() &&
+        isOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().friendCode == existing().friendCode &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName',
+          'avatar',
+          'gamesPlayed',
+          'gamesWon',
+          'gmHostedCount',
+          'lastActiveRoomCode',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+
+      // Saved friends subcollection (Master Gate checks parent user doc)
+      match /friends/{friendUid} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(friendUid);
+        allow list: if isOwner(userId) && isValidId(userId) && resource.data.uid == request.auth.uid;
+        allow create: if isVerifiedUser() &&
+          isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(friendUid) &&
+          isValidFriendLink(incoming(), userId, friendUid) &&
+          incoming().createdAt == request.time &&
+          exists(/databases/$(database)/documents/users/$(userId)) &&
+          exists(/databases/$(database)/documents/playerDirectory/$(incoming().friendCode));
+        allow update: if false;
+        allow delete: if isVerifiedUser() && isOwner(userId) && isValidId(userId) && isValidId(friendUid);
+      }
+
+      // Personal completed match history (Master Gate checks parent user doc)
+      match /matchHistory/{matchId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(matchId);
+        allow list: if isOwner(userId) && isValidId(userId) && resource.data.uid == request.auth.uid;
+        allow create: if isVerifiedUser() &&
+          isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(matchId) &&
+          isValidMatchHistory(incoming(), userId, matchId) &&
+          incoming().playedAt == request.time &&
+          exists(/databases/$(database)/documents/users/$(userId));
+        allow update, delete: if false;
+      }
+    }
+
+    // Lookup directory keyed by Friend Code (get-only, never listable)
+    match /playerDirectory/{friendCode} {
+      allow get: if isSignedIn() && isValidFriendCode(friendCode);
+      allow list: if false;
+      allow create: if isVerifiedUser() &&
+        isValidFriendCode(friendCode) &&
+        isValidDirectoryEntry(incoming(), friendCode) &&
+        incoming().uid == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+          existsAfter(/databases/$(database)/documents/users/$(request.auth.uid)));
+      allow update: if isVerifiedUser() &&
+        isValidFriendCode(friendCode) &&
+        isValidDirectoryEntry(incoming(), friendCode) &&
+        existing().uid == request.auth.uid &&
+        incoming().uid == existing().uid &&
+        incoming().friendCode == existing().friendCode &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName',
+          'avatar',
+          'currentRoomCode',
+          'currentRoomName',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    // Public room browser & room code metadata (strictly non-secret metadata)
+    match /rooms/{roomCode} {
+      allow get: if isSignedIn() && isValidRoomCode(roomCode);
+      allow list: if isSignedIn() && (resource.data.isPublic == true || resource.data.hostUid == request.auth.uid);
+      allow create: if isVerifiedUser() &&
+        isValidRoomCode(roomCode) &&
+        isValidRoomEntry(incoming(), roomCode) &&
+        incoming().hostUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      allow update: if isVerifiedUser() &&
+        isValidRoomCode(roomCode) &&
+        isValidRoomEntry(incoming(), roomCode) &&
+        existing().hostUid == request.auth.uid &&
+        existing().phase != 'GAME_OVER' &&
+        incoming().hostUid == existing().hostUid &&
+        incoming().roomCode == existing().roomCode &&
+        incoming().hostFriendCode == existing().hostFriendCode &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'roomName',
+          'phase',
+          'playerCount',
+          'playerLimit',
+          'isPublic',
+          'updatedAt'
+        ]);
+      allow delete: if isVerifiedUser() && isValidRoomCode(roomCode) && existing().hostUid == request.auth.uid;
+    }
+
+    // Direct friend room invitations
+    match /invites/{inviteId} {
+      allow get: if isSignedIn() &&
+        isValidId(inviteId) &&
+        (existing().toUid == request.auth.uid || existing().fromUid == request.auth.uid);
+      allow list: if isSignedIn() && resource.data.toUid == request.auth.uid;
+      allow create: if isVerifiedUser() &&
+        isValidId(inviteId) &&
+        isValidInvite(incoming(), inviteId) &&
+        incoming().fromUid == request.auth.uid &&
+        incoming().status == 'pending' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      allow update: if isVerifiedUser() &&
+        isValidId(inviteId) &&
+        isValidInvite(incoming(), inviteId) &&
+        existing().toUid == request.auth.uid &&
+        existing().status == 'pending' &&
+        incoming().status in ['accepted', 'dismissed'] &&
+        incoming().inviteId == existing().inviteId &&
+        incoming().fromUid == existing().fromUid &&
+        incoming().fromName == existing().fromName &&
+        incoming().fromFriendCode == existing().fromFriendCode &&
+        incoming().fromAvatar == existing().fromAvatar &&
+        incoming().toUid == existing().toUid &&
+        incoming().roomCode == existing().roomCode &&
+        incoming().roomName == existing().roomName &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isVerifiedUser() &&
+        isValidId(inviteId) &&
+        (existing().toUid == request.auth.uid || existing().fromUid == request.auth.uid);
+    }
+  }
+}
